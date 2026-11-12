@@ -6,6 +6,7 @@ require (
 	cel.dev/cel-go v0.33.0
 	github.com/cosi-project/runtime v1.16.5
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/siderolabs/image-factory v1.8.0
 	github.com/siderolabs/omni/client v1.13.3
 	github.com/siderolabs/talos/pkg/machinery v1.15.0-alpha.2.0.20261028085643-3ba3d6a5e784
 	github.com/urfave/cli/v3 v3.14.0
@@ -15,7 +16,6 @@ require (
 
 require (
 	cel.dev/expr v0.25.3 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20261006220739-8c912ac31dd4 // indirect
 	github.com/ProtonMail/go-crypto v1.5.2 // indirect
 	github.com/ProtonMail/gopenpgp/v3 v3.5.2 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
@@ -53,7 +53,6 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.22.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect

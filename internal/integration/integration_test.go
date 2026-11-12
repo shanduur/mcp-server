@@ -245,6 +245,29 @@ func TestE2E(t *testing.T) {
 
 	s := startServer(t, nil, policyArgs(t, "rules:\n  - tools: [\"*\"]\n    action: allow\n")...)
 
+	t.Run("factory", func(t *testing.T) {
+		versions := s.mustCall(t, "factory_versions", map[string]any{})
+		if !strings.Contains(versions, `"`+talosVersion+`"`) {
+			t.Fatalf("%s not in versions: %s", talosVersion, versions)
+		}
+
+		ext := s.mustCall(t, "factory_extensions", map[string]any{"talos_version": talosVersion})
+		if !strings.Contains(ext, "siderolabs/qemu-guest-agent") {
+			t.Fatalf("qemu-guest-agent extension not listed: %s", ext)
+		}
+
+		created := s.mustCall(t, "factory_schematic_create", map[string]any{
+			"schematic": "customization:\n  extraKernelArgs:\n    - mcp.e2e=1\n",
+		})
+
+		id, _, _ := strings.Cut(strings.TrimPrefix(created, "id: "), "\n")
+
+		got := s.mustCall(t, "factory_schematic_get", map[string]any{"id": id})
+		if !strings.Contains(got, "mcp.e2e=1") {
+			t.Fatalf("unexpected schematic %s: %s", id, got)
+		}
+	})
+
 	var machines []string
 
 	t.Run("machines", func(t *testing.T) {

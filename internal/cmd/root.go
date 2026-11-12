@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/siderolabs/mcp-server/pkg/policy"
+	imagefactory "github.com/siderolabs/mcp-server/pkg/tools/image-factory"
 	"github.com/siderolabs/mcp-server/pkg/tools/omni"
 	"github.com/siderolabs/mcp-server/pkg/tools/talos"
 )
@@ -28,11 +29,12 @@ func Execute(version string) error {
 
 	root := &cli.Command{
 		Name:    name,
-		Usage:   "MCP server for Omni and Talos; serves over stdio unless a subcommand is given",
+		Usage:   "MCP server for Omni, Talos and Image Factory; serves over stdio unless a subcommand is given",
 		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "policy", Usage: "policy file restricting tool calls (default: built-in read-only policy)"},
 			&cli.StringFlag{Name: "talos-context", Usage: "talosconfig context for direct Talos access (default: current context)"},
+			&cli.StringFlag{Name: "image-factory-url", Value: "https://factory.talos.dev", Usage: "Image Factory base URL"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return run(ctx, cmd, func(server *mcp.Server) error {
@@ -73,6 +75,10 @@ func run(ctx context.Context, cmd *cli.Command, serve func(*mcp.Server) error) e
 
 	if routes.Omni != nil || routes.Direct != nil {
 		talos.Register(server, routes)
+	}
+
+	if err = imagefactory.Register(server, cmd.String("image-factory-url")); err != nil {
+		return err
 	}
 
 	return serve(server)

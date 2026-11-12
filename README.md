@@ -1,6 +1,6 @@
 # siderolabs-mcp-server
 
-[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products ([Omni](https://github.com/siderolabs/omni), [Talos](https://github.com/siderolabs/talos)) to agents over stdio or HTTP.
+[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products ([Omni](https://github.com/siderolabs/omni), [Talos](https://github.com/siderolabs/talos), Image Factory) to agents over stdio or HTTP.
 
 ## Backends
 
@@ -8,6 +8,7 @@
 | ------- | ------------ |
 | Omni | `OMNI_ENDPOINT` and `OMNI_SERVICE_ACCOUNT_KEY` set |
 | Talos (direct) | usable talosconfig (`TALOSCONFIG` or `~/.talos/config`; `--talos-context` picks a context) |
+| Image Factory | always (`--image-factory-url`, default `https://factory.talos.dev`) |
 
 What an agent may actually call is decided by the [policy](#policy).
 
@@ -23,6 +24,10 @@ What an agent may actually call is decided by the [policy](#policy).
 | `talos_logs` | Service logs (like `talosctl logs`) |
 | `talos_dmesg` | Kernel log (like `talosctl dmesg`) |
 | `talos_version` | Talos version (like `talosctl version`) |
+| `factory_versions` | Talos versions available in Image Factory |
+| `factory_extensions` | System extensions and overlays for a Talos version |
+| `factory_schematic_get` | Get a schematic by ID |
+| `factory_schematic_create` | Upload a schematic, returns ID and image references |
 
 Talos tools take `nodes` and an optional `cluster`: with `cluster` the request is routed through Omni, without it the local talosconfig is used.
 
