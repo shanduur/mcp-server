@@ -5,4 +5,17 @@
 // Package main is the siderolabs-mcp-server entrypoint.
 package main
 
-func main() {}
+import (
+	"log"
+
+	"github.com/siderolabs/mcp-server/internal/cmd"
+)
+
+// version is set at build time.
+var version = "dev"
+
+func main() {
+	if err := cmd.Execute(version); err != nil {
+		log.Fatal(err)
+	}
+}

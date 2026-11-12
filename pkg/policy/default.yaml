@@ -1,0 +1,13 @@
+# Default policy, used when no --policy is given: read-only access.
+#
+# Rules are evaluated in order; the first rule whose tool glob matches and whose `when`
+# CEL condition (over `tool` and `args`) holds decides. Calls matching no rule are denied.
+rules:
+  # mints a cluster-admin service account token
+  - tools: [omni_kubeconfig]
+    action: deny
+  - tools: [omni_template_sync]
+    when: has(args.dry_run) && args.dry_run == true
+    action: allow
+  - tools: [omni_get, omni_talosconfig, "talos_*", "factory_*"]
+    action: allow
