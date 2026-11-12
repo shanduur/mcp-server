@@ -1,0 +1,48 @@
+# Omni config for hack/test/e2e-qemu.sh, rendered with envsubst.
+account:
+  id: ac000000-0000-0000-0000-000000000000
+  name: mcp-e2e
+
+services:
+  api:
+    endpoint: 0.0.0.0:8099
+    advertisedURL: https://127.0.0.1:${OMNI_HOST_PORT}/
+    certFile: /certs/omni.pem
+    keyFile: /certs/omni-key.pem
+  machineAPI:
+    endpoint: 0.0.0.0:8090
+    advertisedURL: grpc://${SIDEROLINK_HOST}:${OMNI_MACHINE_API_HOST_PORT}
+  siderolink:
+    eventSinkPort: 8091
+    wireGuard:
+      endpoint: 0.0.0.0:50180
+      advertisedEndpoint: ${SIDEROLINK_HOST}:${OMNI_SIDEROLINK_HOST_PORT}
+
+auth:
+  initialUsers:
+    - e2e@siderolabs.com
+  oidc:
+    enabled: true
+    providerURL: http://dex:8080/dex
+    clientID: omni
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    scopes: [openid, profile, email]
+  initialServiceAccount:
+    enabled: true
+    keyPath: /_out/key
+
+storage:
+  default:
+    kind: etcd
+    etcd:
+      embedded: true
+      embeddedUnsafeFsync: true
+      privateKeySource: file:///certs/key.private
+      publicKeyFiles:
+        - /certs/key.public
+  sqlite:
+    path: /_out/secondary.db
+
+eulaAccept:
+  name: E2E
+  email: e2e@siderolabs.com

@@ -1,0 +1,13 @@
+# Mock OIDC provider for the throwaway Omni; never used for login by the tests.
+issuer: http://dex:8080/dex
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:8080
+staticClients:
+  - id: omni
+    name: Omni
+    secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    redirectURIs:
+      - https://127.0.0.1:8099/oidc/consume
+enablePasswordDB: true

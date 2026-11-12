@@ -1,0 +1,38 @@
+# Throwaway Omni for hack/test/e2e-qemu.sh.
+#
+# Omni needs an auth provider at startup, so a Dex instance acts as the OIDC provider; the tests
+# authenticate with the bootstrapped initial service account only. TLS certificates, the etcd
+# encryption PGP key and the rendered Omni config are generated per run into ${E2E_DIR}.
+
+services:
+  dex:
+    image: dexidp/dex:v2.41.1
+    volumes:
+      - ./dex.yaml:/etc/dex/config.yaml:ro
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/dex/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  omni:
+    image: ghcr.io/siderolabs/omni:${OMNI_VERSION:-latest}
+    restart: on-failure
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ${E2E_DIR}/certs:/certs:ro
+      - ${E2E_DIR}/omni-config.yaml:/etc/omni/config.yaml:ro
+      - ${E2E_DIR}/omni:/_out
+    ports:
+      - "${OMNI_HOST_PORT:-8099}:8099"
+      - "${OMNI_MACHINE_API_HOST_PORT:-8090}:8090"
+      - "${OMNI_SIDEROLINK_HOST_PORT:-50180}:50180/udp"
+    command:
+      - --config-path=/etc/omni/config.yaml
+    depends_on:
+      dex:
+        condition: service_healthy

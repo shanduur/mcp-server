@@ -20,3 +20,52 @@ name: image-siderolabs-mcp-server
 spec:
   extraEnvironment:
     PLATFORM: linux/amd64,linux/arm64
+---
+kind: auto.IntegrationTests
+spec:
+  tests:
+    - path: internal/integration
+      name: integration-test
+      outputs:
+        linux-amd64:
+          GOOS: linux
+          GOARCH: amd64
+---
+kind: common.GHWorkflow
+spec:
+  customRunnerGroup: large
+---
+kind: auto.CustomSteps
+spec:
+  steps:
+    - name: e2e-qemu
+      toplevel: true
+---
+kind: custom.Step
+name: e2e-qemu
+spec:
+  sudoInCI: true
+  makefile:
+    enabled: true
+    phony: true
+    depends:
+      - siderolabs-mcp-server-linux-amd64
+      - integration-test-linux-amd64
+    script:
+      - >-
+        @hack/test/e2e-qemu.sh
+  ghaction:
+    enabled: true
+    parallelJob:
+      name: e2e-qemu
+      runnerGroup: large
+      needsOverride: [default]
+    artifacts:
+      enabled: true
+      skipDefaultArtifacts: true
+      additional:
+        - name: e2e-qemu
+          always: true
+          continueOnError: true
+          paths:
+            - _out/e2e

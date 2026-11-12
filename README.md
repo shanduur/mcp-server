@@ -1,6 +1,23 @@
 # siderolabs-mcp-server
 
-[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products to agents over stdio or HTTP.
+[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products ([Omni](https://github.com/siderolabs/omni)) to agents over stdio or HTTP.
+
+## Backends
+
+| Backend | Enabled when |
+| ------- | ------------ |
+| Omni | `OMNI_ENDPOINT` and `OMNI_SERVICE_ACCOUNT_KEY` set |
+
+What an agent may actually call is decided by the [policy](#policy).
+
+## Tools
+
+| Tool | Description |
+| ---- | ----------- |
+| `omni_get` | Get/list any Omni COSI resource as YAML (like `omnictl get`) |
+| `omni_talosconfig` | Cluster talosconfig |
+| `omni_kubeconfig` | Service-account kubeconfig for a cluster |
+| `omni_template_sync` | Apply a cluster template, with dry-run (like `omnictl cluster template sync`) |
 
 ## Policy
 
@@ -33,6 +50,10 @@ everything except `omni_kubeconfig` (which mints cluster-admin credentials), and
 
 ## Usage
 
+Create an Omni service account (`omnictl serviceaccount create mcp`) and pass its credentials to the server
+through `OMNI_ENDPOINT` and `OMNI_SERVICE_ACCOUNT_KEY`.
+Template file references (like patch files) are resolved relative to, and confined to, the server's working directory.
+
 ### stdio
 
 Without a subcommand the server speaks MCP over stdio; register it with your MCP client:
@@ -42,7 +63,11 @@ Without a subcommand the server speaks MCP over stdio; register it with your MCP
   "mcpServers": {
     "siderolabs": {
       "command": "siderolabs-mcp-server",
-      "args": ["--policy", "/path/to/policy.yaml"]
+      "args": ["--policy", "/path/to/policy.yaml"],
+      "env": {
+        "OMNI_ENDPOINT": "https://<account>.omni.siderolabs.io",
+        "OMNI_SERVICE_ACCOUNT_KEY": "<key>"
+      }
     }
   }
 }
@@ -53,6 +78,7 @@ Without a subcommand the server speaks MCP over stdio; register it with your MCP
 `siderolabs-mcp-server serve` exposes the same tools, under the same policy, over the MCP streamable HTTP transport at `/mcp`:
 
 ```sh
+export OMNI_ENDPOINT=https://<account>.omni.siderolabs.io OMNI_SERVICE_ACCOUNT_KEY=<key>
 export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
 
 siderolabs-mcp-server serve --listen 0.0.0.0:8080 --policy policy.yaml
@@ -74,5 +100,5 @@ Clients authenticate with `Authorization: Bearer $MCP_AUTH_TOKEN`:
 }
 ```
 
-The server refuses non-loopback listen addresses without a token (it acts with the configured credentials);
+The server refuses non-loopback listen addresses without a token (it acts with your Omni credentials);
 the default is `127.0.0.1:8080`, where the token is optional.

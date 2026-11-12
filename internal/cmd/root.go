@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/siderolabs/mcp-server/pkg/policy"
+	"github.com/siderolabs/mcp-server/pkg/tools/omni"
 )
 
 const name = "siderolabs-mcp-server"
@@ -26,7 +27,7 @@ func Execute(version string) error {
 
 	root := &cli.Command{
 		Name:    name,
-		Usage:   "MCP server for Sidero Labs products; serves over stdio unless a subcommand is given",
+		Usage:   "MCP server for Omni; serves over stdio unless a subcommand is given",
 		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "policy", Usage: "policy file restricting tool calls (default: built-in read-only policy)"},
@@ -51,6 +52,17 @@ func run(_ context.Context, cmd *cli.Command, serve func(*mcp.Server) error) err
 
 	server := mcp.NewServer(&mcp.Implementation{Name: name, Version: cmd.Root().Version}, nil)
 	server.AddReceivingMiddleware(pol.Middleware)
+
+	c, err := omni.NewClient()
+	if err != nil {
+		return err
+	}
+
+	if c != nil {
+		defer c.Close() //nolint:errcheck
+
+		omni.Register(server, c)
+	}
 
 	return serve(server)
 }
