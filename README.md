@@ -1,12 +1,13 @@
 # siderolabs-mcp-server
 
-[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products ([Omni](https://github.com/siderolabs/omni)) to agents over stdio or HTTP.
+[MCP](https://modelcontextprotocol.io) server exposing Sidero Labs products ([Omni](https://github.com/siderolabs/omni), [Talos](https://github.com/siderolabs/talos)) to agents over stdio or HTTP.
 
 ## Backends
 
 | Backend | Enabled when |
 | ------- | ------------ |
 | Omni | `OMNI_ENDPOINT` and `OMNI_SERVICE_ACCOUNT_KEY` set |
+| Talos (direct) | usable talosconfig (`TALOSCONFIG` or `~/.talos/config`; `--talos-context` picks a context) |
 
 What an agent may actually call is decided by the [policy](#policy).
 
@@ -18,6 +19,12 @@ What an agent may actually call is decided by the [policy](#policy).
 | `omni_talosconfig` | Cluster talosconfig |
 | `omni_kubeconfig` | Service-account kubeconfig for a cluster |
 | `omni_template_sync` | Apply a cluster template, with dry-run (like `omnictl cluster template sync`) |
+| `talos_get` | Get/list Talos COSI resources (like `talosctl get`) |
+| `talos_logs` | Service logs (like `talosctl logs`) |
+| `talos_dmesg` | Kernel log (like `talosctl dmesg`) |
+| `talos_version` | Talos version (like `talosctl version`) |
+
+Talos tools take `nodes` and an optional `cluster`: with `cluster` the request is routed through Omni, without it the local talosconfig is used.
 
 ## Policy
 
@@ -100,5 +107,5 @@ Clients authenticate with `Authorization: Bearer $MCP_AUTH_TOKEN`:
 }
 ```
 
-The server refuses non-loopback listen addresses without a token (it acts with your Omni credentials);
+The server refuses non-loopback listen addresses without a token (it acts with your Omni and Talos credentials);
 the default is `127.0.0.1:8080`, where the token is optional.

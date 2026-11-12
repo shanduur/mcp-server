@@ -181,6 +181,10 @@ func (s *server) mustCall(t *testing.T, name string, args map[string]any) string
 		t.Fatalf("%s: %v", name, err)
 	}
 
+	if strings.HasPrefix(name, "talos_") && strings.Contains(out, "\nerror: ") {
+		t.Fatalf("%s: node error:\n%s", name, out)
+	}
+
 	return out
 }
 
@@ -305,8 +309,10 @@ func TestE2E(t *testing.T) {
 		t.FailNow()
 	}
 
+	var talosconfig string
+
 	t.Run("configs", func(t *testing.T) {
-		talosconfig := s.mustCall(t, "omni_talosconfig", map[string]any{"cluster": clusterName})
+		talosconfig = s.mustCall(t, "omni_talosconfig", map[string]any{"cluster": clusterName})
 		if !strings.Contains(talosconfig, "contexts:") {
 			t.Fatalf("unexpected talosconfig: %s", talosconfig)
 		}
@@ -314,6 +320,47 @@ func TestE2E(t *testing.T) {
 		kubeconfig := s.mustCall(t, "omni_kubeconfig", map[string]any{"cluster": clusterName, "ttl": "10m"})
 		if !strings.Contains(kubeconfig, "clusters:") || !strings.Contains(kubeconfig, "token:") {
 			t.Fatalf("unexpected kubeconfig: %s", kubeconfig)
+		}
+	})
+
+	target := map[string]any{"cluster": clusterName, "nodes": machines[:1]}
+
+	t.Run("talos-via-omni", func(t *testing.T) {
+		testTalosTools(t, s, target, talosVersion)
+	})
+
+	t.Run("talos-direct", func(t *testing.T) {
+		if talosconfig == "" {
+			t.Skip("no talosconfig")
+		}
+
+		path := filepath.Join(t.TempDir(), "talosconfig")
+		if err := os.WriteFile(path, []byte(talosconfig), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		// the Omni-issued talosconfig authenticates with OMNI_SERVICE_ACCOUNT_KEY from the environment;
+		// the policy only allows direct Talos access
+		direct := startServer(t, []string{"TALOSCONFIG=" + path}, policyArgs(t, `
+rules:
+  - tools: ["talos_*"]
+    when: "!has(args.cluster)"
+    action: allow
+`)...)
+
+		if tools := direct.tools(t); !slices.Equal(tools, []string{"talos_dmesg", "talos_get", "talos_logs", "talos_version"}) {
+			t.Fatalf("unexpected tools: %v", tools)
+		}
+
+		testTalosTools(t, direct, map[string]any{"nodes": machines[:1]}, talosVersion)
+
+		for tool, args := range map[string]map[string]any{
+			"talos_version": target,
+			"omni_get":      {"type": "cluster"},
+		} {
+			if _, err := direct.call(t.Context(), tool, args); err == nil || !strings.Contains(err.Error(), "denied by policy") {
+				t.Fatalf("%s: expected policy denial, got %v", tool, err)
+			}
 		}
 	})
 
@@ -360,6 +407,42 @@ func TestE2E(t *testing.T) {
 			}
 		}
 	})
+}
+
+func testTalosTools(t *testing.T, s *server, target map[string]any, talosVersion string) {
+	with := func(extra map[string]any) map[string]any {
+		args := map[string]any{}
+
+		for k, v := range target {
+			args[k] = v
+		}
+
+		for k, v := range extra {
+			args[k] = v
+		}
+
+		return args
+	}
+
+	if out := s.mustCall(t, "talos_version", target); !strings.Contains(out, talosVersion) {
+		t.Fatalf("talos_version does not report %s: %s", talosVersion, out)
+	}
+
+	if out := s.mustCall(t, "talos_get", with(map[string]any{"type": "members"})); !strings.Contains(out, "Members.cluster.talos.dev") {
+		t.Fatalf("talos_get members: %s", out)
+	}
+
+	if out := s.mustCall(t, "talos_get", with(map[string]any{"type": "service", "id": "etcd"})); !strings.Contains(out, "running: true") {
+		t.Fatalf("etcd not running: %s", out)
+	}
+
+	if out := s.mustCall(t, "talos_logs", with(map[string]any{"service": "etcd", "tail_lines": 10})); len(strings.Split(out, "\n")) < 3 {
+		t.Fatalf("talos_logs returned no logs: %s", out)
+	}
+
+	if out := s.mustCall(t, "talos_dmesg", with(map[string]any{"tail_lines": 10})); !slices.ContainsFunc(strings.Split(out, "\n")[1:], func(l string) bool { return l != "" }) {
+		t.Fatalf("talos_dmesg returned no lines: %s", out)
+	}
 }
 
 func (s *server) clusterTemplate(t *testing.T, talosVersion, machine string) string {

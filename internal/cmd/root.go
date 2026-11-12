@@ -16,6 +16,7 @@ import (
 
 	"github.com/siderolabs/mcp-server/pkg/policy"
 	"github.com/siderolabs/mcp-server/pkg/tools/omni"
+	"github.com/siderolabs/mcp-server/pkg/tools/talos"
 )
 
 const name = "siderolabs-mcp-server"
@@ -27,10 +28,11 @@ func Execute(version string) error {
 
 	root := &cli.Command{
 		Name:    name,
-		Usage:   "MCP server for Omni; serves over stdio unless a subcommand is given",
+		Usage:   "MCP server for Omni and Talos; serves over stdio unless a subcommand is given",
 		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "policy", Usage: "policy file restricting tool calls (default: built-in read-only policy)"},
+			&cli.StringFlag{Name: "talos-context", Usage: "talosconfig context for direct Talos access (default: current context)"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return run(ctx, cmd, func(server *mcp.Server) error {
@@ -44,7 +46,7 @@ func Execute(version string) error {
 }
 
 // run builds the MCP server from the configured backends and policy, and passes it to serve.
-func run(_ context.Context, cmd *cli.Command, serve func(*mcp.Server) error) error {
+func run(ctx context.Context, cmd *cli.Command, serve func(*mcp.Server) error) error {
 	pol, err := policy.Load(cmd.String("policy"))
 	if err != nil {
 		return err
@@ -53,15 +55,24 @@ func run(_ context.Context, cmd *cli.Command, serve func(*mcp.Server) error) err
 	server := mcp.NewServer(&mcp.Implementation{Name: name, Version: cmd.Root().Version}, nil)
 	server.AddReceivingMiddleware(pol.Middleware)
 
-	c, err := omni.NewClient()
-	if err != nil {
+	var routes talos.Backends
+
+	if routes.Omni, err = omni.NewClient(); err != nil {
 		return err
 	}
 
-	if c != nil {
-		defer c.Close() //nolint:errcheck
+	if routes.Omni != nil {
+		defer routes.Omni.Close() //nolint:errcheck
 
-		omni.Register(server, c)
+		omni.Register(server, routes.Omni)
+	}
+
+	if routes.Direct = talos.NewClient(ctx, cmd.String("talos-context")); routes.Direct != nil {
+		defer routes.Direct.Close() //nolint:errcheck
+	}
+
+	if routes.Omni != nil || routes.Direct != nil {
+		talos.Register(server, routes)
 	}
 
 	return serve(server)
