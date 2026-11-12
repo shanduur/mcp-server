@@ -11,11 +11,8 @@ import (
 	"github.com/siderolabs/mcp-server/internal/cmd"
 )
 
-// version is set at build time.
-var version = "dev"
-
 func main() {
-	if err := cmd.Execute(version); err != nil {
+	if err := cmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/urfave/cli/v3"
 
+	"github.com/siderolabs/mcp-server/internal/version"
 	"github.com/siderolabs/mcp-server/pkg/policy"
 	imagefactory "github.com/siderolabs/mcp-server/pkg/tools/image-factory"
 	"github.com/siderolabs/mcp-server/pkg/tools/omni"
@@ -23,14 +24,14 @@ import (
 const name = "siderolabs-mcp-server"
 
 // Execute runs the command line until it finishes or the process is interrupted.
-func Execute(version string) error {
+func Execute() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	root := &cli.Command{
 		Name:    name,
 		Usage:   "MCP server for Omni, Talos and Image Factory; serves over stdio unless a subcommand is given",
-		Version: version,
+		Version: version.Tag,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "policy", Usage: "policy file restricting tool calls (default: built-in read-only policy)"},
 			&cli.StringFlag{Name: "talos-context", Usage: "talosconfig context for direct Talos access (default: current context)"},
@@ -54,7 +55,7 @@ func run(ctx context.Context, cmd *cli.Command, serve func(*mcp.Server) error) e
 		return err
 	}
 
-	server := mcp.NewServer(&mcp.Implementation{Name: name, Version: cmd.Root().Version}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: name, Version: version.Tag}, nil)
 	server.AddReceivingMiddleware(pol.Middleware)
 
 	var routes talos.Backends

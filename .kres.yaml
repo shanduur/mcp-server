@@ -69,3 +69,7 @@ spec:
           continueOnError: true
           paths:
             - _out/e2e
+---
+kind: golang.Generate
+spec:
+  versionPackagePath: internal/version

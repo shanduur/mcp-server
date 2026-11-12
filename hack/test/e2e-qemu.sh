@@ -21,7 +21,9 @@
 #   FACTORY_URL         Image Factory URL (default: https://factory.talos.dev).
 #   E2E_TEST_ARGS       Extra args for the test binary (e.g. "-test.run TestE2E/factory").
 
-set -euo pipefail
+set -Eeuo pipefail
+
+trap 'echo "error: line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
@@ -86,19 +88,24 @@ cleanup() {
   "${COMPOSE[@]}" logs --no-color >"${E2E_DIR}/omni.log" 2>&1 || true
   "${COMPOSE[@]}" down -t 5 -v --remove-orphans >/dev/null 2>&1 || true
   rm -rf "${E2E_DIR}/certs" "${E2E_DIR}/omni" "${E2E_DIR}/bin" "${TALOS_STATE}"
+
+  # run under sudo: hand the outputs back so they can be read (and uploaded by CI) as the invoking user
+  if [[ -n "${SUDO_UID:-}" ]]; then
+    chown -R "${SUDO_UID}:${SUDO_GID}" "${REPO_ROOT}/_out"
+  fi
 }
 trap cleanup EXIT INT TERM
 
 echo "==> Generating throwaway TLS certificates"
 (
   cd "${E2E_DIR}/certs"
+  printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n' >omni.ext
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 1 \
-    -subj "/CN=mcp-e2e CA" -keyout ca-key.pem -out ca.pem 2>/dev/null
+    -subj "/CN=mcp-e2e CA" -keyout ca-key.pem -out ca.pem
   openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
-    -subj "/CN=localhost" -keyout omni-key.pem -out omni.csr 2>/dev/null
+    -subj "/CN=localhost" -keyout omni-key.pem -out omni.csr
   openssl x509 -req -in omni.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -days 1 \
-    -extfile <(printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth') \
-    -out omni.pem 2>/dev/null
+    -extfile omni.ext -out omni.pem
 )
 # trusted by omnictl, the MCP server and the test binary instead of skipping TLS verification
 export SSL_CERT_FILE="${E2E_DIR}/certs/ca.pem"
@@ -106,9 +113,9 @@ export SSL_CERT_FILE="${E2E_DIR}/certs/ca.pem"
 echo "==> Generating throwaway etcd encryption PGP key"
 GNUPGHOME="$(mktemp -d)"
 export GNUPGHOME
-gpg --batch --passphrase '' --quick-generate-key "Omni E2E <e2e@siderolabs.com>" rsa4096 cert never 2>/dev/null
+gpg --batch --quiet --passphrase '' --quick-generate-key "Omni E2E <e2e@siderolabs.com>" rsa4096 cert never
 FPR="$(gpg --list-keys --with-colons | awk -F: '/^fpr/ { print $10; exit }')"
-gpg --batch --passphrase '' --quick-add-key "${FPR}" rsa4096 encr never 2>/dev/null
+gpg --batch --quiet --passphrase '' --quick-add-key "${FPR}" rsa4096 encr never
 gpg --armor --export-secret-keys "${FPR}" >"${E2E_DIR}/certs/key.private"
 gpg --armor --export "${FPR}" >"${E2E_DIR}/certs/key.public"
 rm -rf "${GNUPGHOME}"
